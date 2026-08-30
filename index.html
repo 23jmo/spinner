@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Spinner</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { height:100%; }
+  body {
+    background:#0a0b0f;
+    background-image:radial-gradient(ellipse at 50% 0%, #141824 0%, #0a0b0f 70%);
+    font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    color:#e8eaf0;
+    display:flex; align-items:center; justify-content:center;
+    min-height:100vh; overflow:hidden;
+    touch-action:manipulation; user-select:none; -webkit-user-select:none;
+  }
+  .machine {
+    position:relative;
+    width:min(92vw, 480px);
+    background:linear-gradient(160deg, #232733 0%, #161a23 45%, #10131b 100%);
+    border-radius:28px;
+    border:1px solid #2e3444;
+    box-shadow:0 30px 80px rgba(0,0,0,.7), inset 0 1px 0 rgba(255,255,255,.06);
+    padding:34px 30px 40px;
+  }
+  .screw { position:absolute; width:10px; height:10px; border-radius:50%;
+    background:radial-gradient(circle at 35% 30%, #4a5165, #1a1e28 70%);
+    box-shadow:inset 0 1px 2px rgba(0,0,0,.8); }
+  .screw.tl{top:12px;left:12px;} .screw.tr{top:12px;right:12px;}
+  .screw.bl{bottom:12px;left:12px;} .screw.br{bottom:12px;right:12px;}
+  .marquee {
+    text-align:center; font-weight:800; letter-spacing:.35em; font-size:15px;
+    color:#8b93a8; text-transform:uppercase; margin-bottom:22px;
+    text-shadow:0 0 18px rgba(120,140,255,.25);
+  }
+  .window {
+    position:relative; height:216px; border-radius:16px; overflow:hidden;
+    background:#05060a;
+    border:1px solid #343b4e;
+    box-shadow:inset 0 10px 30px rgba(0,0,0,.9), inset 0 -10px 30px rgba(0,0,0,.9);
+  }
+  .window::before, .window::after {
+    content:""; position:absolute; left:0; right:0; height:64px; z-index:3; pointer-events:none;
+  }
+  .window::before { top:0; background:linear-gradient(#05060a 10%, rgba(5,6,10,0)); }
+  .window::after { bottom:0; background:linear-gradient(rgba(5,6,10,0), #05060a 90%); }
+  .centerline {
+    position:absolute; top:50%; left:0; right:0; height:72px; transform:translateY(-50%);
+    border-top:1px solid rgba(255,205,80,.25); border-bottom:1px solid rgba(255,205,80,.25);
+    background:rgba(255,205,80,.04); z-index:2; pointer-events:none;
+  }
+  .strip { position:absolute; left:0; right:0; top:0; will-change:transform; }
+  .item {
+    height:72px; display:flex; align-items:center; justify-content:center;
+    font-size:30px; font-weight:800; letter-spacing:.02em; color:#cfd5e4;
+    padding:0 16px; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .window.flash .centerline { animation:winflash .9s ease-out 3; }
+  @keyframes winflash {
+    0%,100% { background:rgba(255,205,80,.04); }
+    50% { background:rgba(255,205,80,.28); box-shadow:0 0 40px rgba(255,205,80,.35); }
+  }
+  .lever {
+    position:absolute; right:-34px; top:70px; width:60px; height:260px;
+    cursor:pointer; z-index:5;
+  }
+  .lever-base {
+    position:absolute; bottom:0; left:50%; transform:translateX(-50%);
+    width:44px; height:60px; border-radius:12px;
+    background:linear-gradient(160deg, #2c3242, #141821);
+    border:1px solid #363d50;
+    box-shadow:0 6px 16px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.08);
+  }
+  .lever-arm-wrap {
+    position:absolute; bottom:44px; left:50%; width:0; height:0;
+    transform-origin:50% 100%;
+    transition:transform .18s ease-in;
+  }
+  .lever.pulled .lever-arm-wrap { transform:rotate(155deg); transition:transform .28s ease-out; }
+  .lever-arm {
+    position:absolute; bottom:0; left:-5px; width:10px; height:150px; border-radius:5px;
+    background:linear-gradient(90deg, #3a4152, #20242f);
+    box-shadow:0 0 8px rgba(0,0,0,.5);
+  }
+  .lever-knob {
+    position:absolute; bottom:138px; left:-21px; width:42px; height:42px; border-radius:50%;
+    background:radial-gradient(circle at 35% 30%, #ff7a6b, #d92b1c 55%, #7d1208 100%);
+    box-shadow:0 6px 14px rgba(0,0,0,.6), inset 0 -3px 6px rgba(0,0,0,.4);
+  }
+  .hint { text-align:center; margin-top:26px; color:#5c6377; font-size:13px; letter-spacing:.12em; text-transform:uppercase; }
+  .result {
+    text-align:center; min-height:30px; margin-top:14px; font-size:20px; font-weight:800;
+    color:#ffcd50; text-shadow:0 0 24px rgba(255,205,80,.4);
+    opacity:0; transition:opacity .25s;
+  }
+  .result.show { opacity:1; }
+  .mute {
+    position:absolute; top:14px; right:36px; background:none; border:none; cursor:pointer;
+    font-size:18px; opacity:.55; padding:6px; z-index:6;
+  }
+  .mute:hover { opacity:.9; }
+  @media (max-width:560px) {
+    .lever { right:-6px; top:auto; bottom:-78px; height:80px; width:200px; left:50%; margin-left:-100px; }
+    .lever-base { display:none; }
+    .lever-arm-wrap { display:none; }
+    .lever::after {
+      content:"PULL"; position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+      font-weight:800; letter-spacing:.3em; font-size:15px; color:#ffd9d4;
+      background:radial-gradient(circle at 35% 30%, #ff7a6b, #d92b1c 60%, #7d1208);
+      border-radius:40px; box-shadow:0 8px 20px rgba(217,43,28,.35);
+    }
+    .lever.pulled::after { transform:scale(.94); }
+    .machine { padding-bottom:110px; }
+  }
+</style>
+</head>
+<body>
+  <div class="machine" id="machine">
+    <div class="screw tl"></div><div class="screw tr"></div><div class="screw bl"></div><div class="screw br"></div>
+    <button class="mute" id="muteBtn" title="toggle sound">&#128266;</button>
+    <div class="marquee">Spinner</div>
+    <div class="window" id="window">
+      <div class="strip" id="strip"></div>
+      <div class="centerline"></div>
+    </div>
+    <div class="result" id="result"></div>
+    <div class="hint">pull the lever</div>
+    <div class="lever" id="lever">
+      <div class="lever-arm-wrap"><div class="lever-arm"></div><div class="lever-knob"></div></div>
+      <div class="lever-base"></div>
+    </div>
+  </div>
+
+<script>
+(function(){
+  "use strict";
+  var ITEM_H = 72, CYCLES = 6, REPEATS = 14;
+  var DEFAULTS = ["Pizza","Sushi","Tacos","Ramen","Burgers","Dumplings","Pasta","BBQ"];
+  var LS_OPT = "slot.options", LS_RIG = "slot.rig", LS_MUTE = "slot.muted";
+
+  function loadOptions(){
+    try {
+      var raw = localStorage.getItem(LS_OPT);
+      if (raw) {
+        var arr = JSON.parse(raw);
+        if (Array.isArray(arr)) {
+          arr = arr.map(function(s){ return String(s).trim(); }).filter(Boolean);
+          if (arr.length >= 2) return arr;
+        }
+      }
+    } catch(e){}
+    return DEFAULTS.slice();
+  }
+  function getRig(){ try { return localStorage.getItem(LS_RIG) || ""; } catch(e){ return ""; } }
+  function isMuted(){ try { return localStorage.getItem(LS_MUTE) === "1"; } catch(e){ return false; } }
+
+  var options = loadOptions();
+  var strip = document.getElementById("strip");
+  var win = document.getElementById("window");
+  var resultEl = document.getElementById("result");
+  var lever = document.getElementById("lever");
+  var muteBtn = document.getElementById("muteBtn");
+
+  // --- audio ---
+  var actx = null;
+  function audio(){
+    if (!actx) {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (AC) actx = new AC();
+    }
+    if (actx && actx.state === "suspended") actx.resume();
+    return actx;
+  }
+  function tick(){
+    if (isMuted()) return; var c = audio(); if (!c) return;
+    var o = c.createOscillator(), g = c.createGain();
+    o.type = "square"; o.frequency.value = 2200;
+    g.gain.setValueAtTime(0.08, c.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.0001, c.currentTime + 0.04);
+    o.connect(g); g.connect(c.destination);
+    o.start(); o.stop(c.currentTime + 0.05);
+  }
+  function clunk(){
+    if (isMuted()) return; var c = audio(); if (!c) return;
+    var o = c.createOscillator(), g = c.createGain();
+    o.type = "sine";
+    o.frequency.setValueAtTime(160, c.currentTime);
+    o.frequency.exponentialRampToValueAtTime(50, c.currentTime + 0.18);
+    g.gain.setValueAtTime(0.35, c.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.0001, c.currentTime + 0.2);
+    o.connect(g); g.connect(c.destination);
+    o.start(); o.stop(c.currentTime + 0.22);
+  }
+  function winSound(){
+    if (isMuted()) return; var c = audio(); if (!c) return;
+    var notes = [523.25, 659.25, 783.99, 1046.5];
+    notes.forEach(function(f, i){
+      var o = c.createOscillator(), g = c.createGain();
+      o.type = "triangle"; o.frequency.value = f;
+      var t = c.currentTime + i * 0.11;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.linearRampToValueAtTime(0.22, t + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.35);
+      o.connect(g); g.connect(c.destination);
+      o.start(t); o.stop(t + 0.4);
+    });
+  }
+
+  // --- reel ---
+  var pos = 0;
+  var spinning = false;
+  var lastTickIndex = -1;
+
+  function buildStrip(){
+    strip.innerHTML = "";
+    var total = options.length * REPEATS;
+    for (var i = 0; i < total; i++) {
+      var d = document.createElement("div");
+      d.className = "item";
+      d.textContent = options[i % options.length];
+      strip.appendChild(d);
+    }
+  }
+  function render(){
+    var y = -(pos * ITEM_H) + (216 / 2) - (ITEM_H / 2);
+    strip.style.transform = "translateY(" + y + "px)";
+  }
+  function easeOutQuint(t){ return 1 - Math.pow(1 - t, 5); }
+
+  function pickTarget(){
+    var rig = getRig();
+    if (rig) {
+      var idx = options.indexOf(rig);
+      if (idx >= 0) return idx;
+    }
+    return Math.floor(Math.random() * options.length);
+  }
+
+  function spin(){
+    if (spinning) return;
+    if (options.length < 2) return;
+    spinning = true;
+    resultEl.classList.remove("show");
+    win.classList.remove("flash");
+    clunk();
+
+    var target = pickTarget();
+    var len = options.length;
+    var baseRep = Math.floor(REPEATS / 2);
+    var curMod = ((pos % len) + len) % len;
+    var start = baseRep * len + curMod;
+    pos = start;
+    var delta = ((target - (start % len)) + len) % len;
+    var final = start + CYCLES * len + delta;
+    if (final >= len * (REPEATS - 1)) final -= len * Math.floor(CYCLES / 2);
+
+    var duration = 4200 + Math.random() * 800;
+    var t0 = performance.now();
+    lastTickIndex = Math.floor(start);
+
+    function frame(now){
+      var t = Math.min(1, (now - t0) / duration);
+      pos = start + (final - start) * easeOutQuint(t);
+      var idx = Math.floor(pos);
+      if (idx !== lastTickIndex) { lastTickIndex = idx; tick(); }
+      render();
+      if (t < 1) { requestAnimationFrame(frame); }
+      else {
+        pos = final; render();
+        spinning = false;
+        var landed = options[((Math.round(final) % len) + len) % len];
+        resultEl.textContent = landed;
+        resultEl.classList.add("show");
+        win.classList.add("flash");
+        winSound();
+      }
+    }
+    requestAnimationFrame(frame);
+  }
+
+  function pullLever(){
+    if (spinning) return;
+    audio();
+    lever.classList.add("pulled");
+    setTimeout(function(){ lever.classList.remove("pulled"); }, 480);
+    setTimeout(spin, 180);
+  }
+
+  lever.addEventListener("pointerdown", function(e){ e.preventDefault(); pullLever(); });
+  win.addEventListener("pointerdown", function(e){ e.preventDefault(); pullLever(); });
+
+  function paintMute(){ muteBtn.innerHTML = isMuted() ? "&#128263;" : "&#128266;"; }
+  muteBtn.addEventListener("pointerdown", function(e){
+    e.preventDefault(); e.stopPropagation();
+    try { localStorage.setItem(LS_MUTE, isMuted() ? "0" : "1"); } catch(err){}
+    paintMute();
+  });
+  paintMute();
+
+  // --- secret gesture: 5 taps in the top-left corner within 2.5s ---
+  var taps = [];
+  document.addEventListener("pointerdown", function(e){
+    if (e.clientX < 60 && e.clientY < 60) {
+      var now = Date.now();
+      taps = taps.filter(function(t){ return now - t < 2500; });
+      taps.push(now);
+      if (taps.length >= 5) { window.location.href = "secret/"; }
+    } else {
+      taps = [];
+    }
+  });
+
+  window.addEventListener("storage", function(){
+    options = loadOptions(); buildStrip(); render();
+  });
+
+  buildStrip();
+  pos = Math.floor(REPEATS / 2) * options.length;
+  render();
+})();
+</script>
+</body>
+</html>
